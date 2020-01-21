@@ -9,11 +9,24 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
 
-export_file_url = 'https://www.dropbox.com/s/6bgq8t6yextloqp/export.pkl?raw=1'
-export_file_name = 'export.pkl'
+export_file_url = 'https://srv-file5.gofile.io/download/h91NED/flower_model_50.pth'
+export_file_name = 'flower_model_50.pth'
 
-classes = ['black', 'grizzly', 'teddys']
+
+from scipy.io import loadmat
+labels_path = str(Path(__file__).parent/'models'/'imagelabels.mat')
+labels_text_path = str(Path(__file__).parent/'models'/'Oxford-102_Flower_dataset_labels.txt')
+labels_text = []
+with open(labels_text_path, 'r') as f:
+    content = f.readlines()
+    labels_text = [line.strip() for line in content]
+print('LABELS TEXT:', labels_text)
+labels = loadmat(labels_path)
+classes = labels['labels'][0]
+classes = labels_text
+#classes = ['black', 'grizzly', 'teddys']
 path = Path(__file__).parent
+print('PATH:', str(path))
 
 app = Starlette()
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_headers=['X-Requested-With', 'Content-Type'])
@@ -30,9 +43,10 @@ async def download_file(url, dest):
 
 
 async def setup_learner():
-    await download_file(export_file_url, path / export_file_name)
+    await download_file(export_file_url, path / 'models' / export_file_name)
     try:
-        learn = load_learner(path, export_file_name)
+        #learn = load_learner(path/'models', export_file_name)
+        learn = load_learner(path / 'models', export_file_name)
         return learn
     except RuntimeError as e:
         if len(e.args) > 0 and 'CPU-only machine' in e.args[0]:
@@ -60,7 +74,9 @@ async def analyze(request):
     img_data = await request.form()
     img_bytes = await (img_data['file'].read())
     img = open_image(BytesIO(img_bytes))
-    prediction = learn.predict(img)[0]
+    #prediction = learn.predict(img)[0]
+    prediction_index = learn.predict(img)[1]
+    prediction = classes[prediction_index]
     return JSONResponse({'result': str(prediction)})
 
 
